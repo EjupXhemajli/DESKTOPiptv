@@ -1,0 +1,80 @@
+name: Build EX-IPTV Desktop
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      PROJECT: ExIptv/ExIptv.csproj
+      CONFIG: Release
+      RID: win-x64
+      PUBLISH_DIR: publish
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore ${{ env.PROJECT }}
+
+      - name: Publish (self-contained, win-x64)
+        run: >
+          dotnet publish ${{ env.PROJECT }}
+          -c ${{ env.CONFIG }}
+          -r ${{ env.RID }}
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:DebugType=none
+          -o ${{ env.PUBLISH_DIR }}
+
+      - name: Portable ZIP
+        run: Compress-Archive -Path "${{ env.PUBLISH_DIR }}\*" -DestinationPath "ExIptv-portable-${{ env.RID }}.zip" -Force
+        shell: pwsh
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+        shell: pwsh
+
+      - name: Build installer
+        run: >
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          /DPublishDir="${{ github.workspace }}\${{ env.PUBLISH_DIR }}"
+          /DOutputDir="${{ github.workspace }}\installer_out"
+          "installer\setup.iss"
+        shell: pwsh
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExIptv-portable
+          path: ExIptv-portable-${{ env.RID }}.zip
+          if-no-files-found: error
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExIptv-Setup
+          path: installer_out/*.exe
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            installer_out/*.exe
+            ExIptv-portable-${{ env.RID }}.zip

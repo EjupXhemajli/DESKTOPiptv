@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>ExIptv</AssemblyName>
+    <RootNamespace>ExIptv</RootNamespace>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <Product>EX-IPTV Desktop</Product>
+    <Company>don1</Company>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Verhindert, dass fehlende XML-Doc-Kommentare als Warnung/Fehler auftauchen -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- RID und SelfContained werden im publish-Schritt (GitHub Actions) gesetzt,
+         damit lokale Builds/Designer schnell bleiben. -->
+    <Platforms>AnyCPU;x64</Platforms>
+    <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="LibVLCSharp" Version="3.9.0" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.9.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.8" />
+    <PackageReference Include="Serilog" Version="4.0.1" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WPF-Projekte binden System.Net.Http und System.IO NICHT automatisch als
+         implizites Using ein – hier zentral nachziehen. -->
+    <Using Include="System.Net.Http" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- In die Assembly eingebettet, damit die Bilder zur Laufzeit immer verfügbar sind -->
+    <Resource Include="Assets\logo.png" />
+    <Resource Include="Assets\logo_small.png" />
+    <Resource Include="Assets\app_icon.png" />
+  </ItemGroup>
+
+</Project>

@@ -186,7 +186,7 @@ public sealed class IptvRepository
         """;
         if (!string.IsNullOrEmpty(categoryExternalId)) sql += " AND CategoryExternalId=@C";
         if (!string.IsNullOrWhiteSpace(search)) sql += " AND Name LIKE @Q";
-        sql += " ORDER BY Name COLLATE NOCASE LIMIT @L";
+        sql += " ORDER BY Id LIMIT @L";   // Id = Importreihenfolge = Reihenfolge des Anbieters
         return conn.Query<LiveChannel>(sql, new
         {
             S = sourceId,
@@ -196,7 +196,7 @@ public sealed class IptvRepository
         }).ToList();
     }
 
-    public IReadOnlyList<VodStream> GetMovies(int sourceId, string? categoryExternalId, string? search, int limit = 5000)
+    public IReadOnlyList<VodStream> GetMovies(int sourceId, string? categoryExternalId, string? search, string sort = "name", int limit = 5000)
     {
         using var conn = _db.OpenConnection();
         var sql = """
@@ -205,11 +205,11 @@ public sealed class IptvRepository
         """;
         if (!string.IsNullOrEmpty(categoryExternalId)) sql += " AND CategoryExternalId=@C";
         if (!string.IsNullOrWhiteSpace(search)) sql += " AND Name LIKE @Q";
-        sql += " ORDER BY Name COLLATE NOCASE LIMIT @L";
+        sql += " ORDER BY " + OrderClause(sort) + " LIMIT @L";
         return conn.Query<VodStream>(sql, new { S = sourceId, C = categoryExternalId, Q = $"%{search}%", L = limit }).ToList();
     }
 
-    public IReadOnlyList<Series> GetSeries(int sourceId, string? categoryExternalId, string? search, int limit = 5000)
+    public IReadOnlyList<Series> GetSeries(int sourceId, string? categoryExternalId, string? search, string sort = "name", int limit = 5000)
     {
         using var conn = _db.OpenConnection();
         var sql = """
@@ -218,9 +218,17 @@ public sealed class IptvRepository
         """;
         if (!string.IsNullOrEmpty(categoryExternalId)) sql += " AND CategoryExternalId=@C";
         if (!string.IsNullOrWhiteSpace(search)) sql += " AND Name LIKE @Q";
-        sql += " ORDER BY Name COLLATE NOCASE LIMIT @L";
+        sql += " ORDER BY " + OrderClause(sort) + " LIMIT @L";
         return conn.Query<Series>(sql, new { S = sourceId, C = categoryExternalId, Q = $"%{search}%", L = limit }).ToList();
     }
+
+    // Feste, injektionssichere ORDER-BY-Klauseln (der sort-Wert wird nie direkt eingesetzt).
+    private static string OrderClause(string sort) => sort switch
+    {
+        "recent" => "Id DESC",                                  // Insert-Reihenfolge ≈ zuletzt hinzugefügt
+        "rating" => "Rating IS NULL, Rating DESC, Name COLLATE NOCASE",
+        _ => "Name COLLATE NOCASE"
+    };
 
     // ---------- Favoriten ----------
 

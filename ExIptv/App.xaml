@@ -10,6 +10,7 @@
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
             <conv:InverseBoolConverter x:Key="InvBool"/>
+            <conv:UrlToImageConverter x:Key="UrlToImage"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

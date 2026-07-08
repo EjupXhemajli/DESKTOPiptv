@@ -76,15 +76,49 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private ContentType _currentSection = ContentType.Live;
 
+    // Live -> Listenansicht mit Player rechts; Filme/Serien -> Poster-Grid, Player-Spalte aus
+    public bool IsLiveSection => CurrentSection == ContentType.Live;
+    public bool IsVodSection => CurrentSection != ContentType.Live;
+
     partial void OnCurrentSectionChanged(ContentType value)
     {
         ShowEpisodes = false;
+        OnPropertyChanged(nameof(IsLiveSection));
+        OnPropertyChanged(nameof(IsVodSection));
         _ = LoadSectionAsync();
     }
 
     [RelayCommand] private void ShowLive() => CurrentSection = ContentType.Live;
     [RelayCommand] private void ShowMovies() => CurrentSection = ContentType.Movie;
     [RelayCommand] private void ShowSeries() => CurrentSection = ContentType.Series;
+
+    // ---------- Vollbild ----------
+
+    [ObservableProperty] private bool _isFullscreen;
+    [RelayCommand] private void ToggleFullscreen() => IsFullscreen = !IsFullscreen;
+
+    partial void OnIsFullscreenChanged(bool value)
+    {
+        // Im Poster-Modus (Filme/Serien) gibt es keine sichtbare Player-Spalte. Wird das Vollbild
+        // dort verlassen, würde die Wiedergabe unsichtbar weiterlaufen -> daher beenden.
+        if (!value && CurrentSection != ContentType.Live)
+        {
+            _player.Stop();
+            NowPlaying = "";
+        }
+    }
+
+    // ---------- Sortierung (Filme/Serien) ----------
+
+    public IReadOnlyList<Choice> SortModes { get; } = new[]
+    {
+        new Choice("A–Z", "name"),
+        new Choice("Zuletzt hinzugefügt", "recent"),
+        new Choice("Best bewertet", "rating"),
+    };
+    [ObservableProperty] private string _selectedSortMode = "name";
+
+    partial void OnSelectedSortModeChanged(string value) => _ = LoadItemsAsync();
 
     // ---------- Kategorien ----------
 
@@ -261,6 +295,7 @@ public sealed partial class MainViewModel : ObservableObject
         var section = CurrentSection;
         var catId = SelectedCategory.ExternalId == "__all__" ? null : SelectedCategory.ExternalId;
         var search = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim();
+        var sort = SelectedSortMode;
 
         try
         {
@@ -274,11 +309,11 @@ public sealed partial class MainViewModel : ObservableObject
                             list.Add(PlayableItem.FromLive(c));
                         break;
                     case ContentType.Movie:
-                        foreach (var m in _repo.GetMovies(sourceId, catId, search))
+                        foreach (var m in _repo.GetMovies(sourceId, catId, search, sort, 500))
                             list.Add(PlayableItem.FromMovie(m));
                         break;
                     case ContentType.Series:
-                        foreach (var s in _repo.GetSeries(sourceId, catId, search))
+                        foreach (var s in _repo.GetSeries(sourceId, catId, search, sort, 500))
                             list.Add(PlayableItem.FromSeries(s));
                         break;
                 }
@@ -289,7 +324,10 @@ public sealed partial class MainViewModel : ObservableObject
 
             Items.Clear();
             foreach (var it in loaded) Items.Add(it);
-            StatusText = $"{Items.Count} Einträge";
+            var vodLimited = section is ContentType.Movie or ContentType.Series && Items.Count >= 500;
+            StatusText = vodLimited
+                ? $"{Items.Count} angezeigt – Kategorie oder Suche eingrenzen"
+                : $"{Items.Count} Einträge";
         }
         catch (Exception ex)
         {
@@ -329,6 +367,8 @@ public sealed partial class MainViewModel : ObservableObject
         NowPlaying = item.Name;
         _player.Play(item.StreamUrl, item.Type);
         StatusText = $"Spiele: {item.Name}";
+        // Filme laufen aus dem Poster-Grid – ohne sichtbare Player-Spalte -> Vollbild
+        if (item.Type == ContentType.Movie) IsFullscreen = true;
     }
 
     private async Task LoadEpisodesAsync(PlayableItem seriesItem)
@@ -359,6 +399,8 @@ public sealed partial class MainViewModel : ObservableObject
         NowPlaying = $"{EpisodesTitle} – {episode.Display}";
         _player.Play(episode.StreamUrl, ContentType.Series);
         StatusText = $"Spiele: {episode.Display}";
+        ShowEpisodes = false;
+        IsFullscreen = true;
     }
 
     [RelayCommand] private void CloseEpisodes() => ShowEpisodes = false;

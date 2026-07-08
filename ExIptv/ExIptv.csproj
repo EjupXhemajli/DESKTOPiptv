@@ -10,9 +10,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ExIptv</AssemblyName>
     <RootNamespace>ExIptv</RootNamespace>
-    <Version>0.1.0</Version>
-    <FileVersion>0.1.0.0</FileVersion>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <Version>0.3.0</Version>
+    <FileVersion>0.3.0.0</FileVersion>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
     <Product>EX-IPTV Desktop</Product>
     <Company>don1</Company>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
