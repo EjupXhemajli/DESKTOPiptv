@@ -218,18 +218,32 @@ public sealed class VlcPlayerService : IDisposable
 
     // ---------- Spuren ----------
 
-    public IReadOnlyList<TrackInfo> GetAudioTracks() => Describe(_player?.AudioTrackDescription);
-    public IReadOnlyList<TrackInfo> GetSubtitleTracks() => Describe(_player?.SpuDescription);
+    public IReadOnlyList<TrackInfo> GetAudioTracks()
+    {
+        var list = new List<TrackInfo>();
+        // Kein expliziter Elementtyp: LibVLCSharp legt die Spur-Beschreibung je nach Version
+        // in unterschiedliche Namespaces – var leitet den Typ aus der Property ab.
+        var desc = _player?.AudioTrackDescription;
+        if (desc != null)
+            foreach (var t in desc)
+                list.Add(new TrackInfo(t.Id, string.IsNullOrWhiteSpace(t.Name) ? $"Spur {t.Id}" : t.Name));
+        return list;
+    }
+
+    public IReadOnlyList<TrackInfo> GetSubtitleTracks()
+    {
+        var list = new List<TrackInfo>();
+        var desc = _player?.SpuDescription;
+        if (desc != null)
+            foreach (var t in desc)
+                list.Add(new TrackInfo(t.Id, string.IsNullOrWhiteSpace(t.Name) ? $"Spur {t.Id}" : t.Name));
+        return list;
+    }
+
     public int CurrentAudioTrack => _player?.AudioTrack ?? -1;
     public int CurrentSubtitleTrack => _player?.Spu ?? -1;
     public void SetAudioTrack(int id) { if (_player is not null) _player.SetAudioTrack(id); }
     public void SetSubtitleTrack(int id) { if (_player is not null) _player.SetSpu(id); }
-
-    private static IReadOnlyList<TrackInfo> Describe(TrackDescription[]? tracks)
-    {
-        if (tracks is null) return Array.Empty<TrackInfo>();
-        return tracks.Select(t => new TrackInfo(t.Id, string.IsNullOrWhiteSpace(t.Name) ? $"Spur {t.Id}" : t.Name)).ToList();
-    }
 
     // ---------- Events ----------
 
