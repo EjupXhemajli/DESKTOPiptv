@@ -1,7 +1,18 @@
-name: Build IPTV App
+name: Create IPTV app build workflow
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show files
+        run: dir
