@@ -1,4 +1,4 @@
-name: Create IPTV app build workflow
+name: Build EX-IPTV Desktop
 
 on:
   workflow_dispatch:
@@ -11,8 +11,22 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show files
-        run: dir
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore ExIptvDesktop/ExIptvDesktop/src/ExIptvDesktop.csproj
+
+      - name: Publish
+        run: dotnet publish ExIptvDesktop/ExIptvDesktop/src/ExIptvDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: EX-IPTV-Windows
+          path: publish
