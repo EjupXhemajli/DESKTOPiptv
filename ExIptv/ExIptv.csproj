@@ -25,6 +25,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Schutz gegen doppelte Klassen: Falls durch frühere, falsch entpackte ZIPs noch eine
+         verschachtelte Altkopie unter …/ExIptv/ExIptv/ liegt, darf sie NICHT mitkompiliert werden.
+         Echte Quellen liegen unter Views/, ViewModels/, Services/ usw. – nie unter "ExIptv". -->
+    <Compile Remove="ExIptv\**\*.cs" />
+    <Page Remove="ExIptv\**\*.xaml" />
+    <ApplicationDefinition Remove="ExIptv\**\*.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="LibVLCSharp" Version="3.9.0" />

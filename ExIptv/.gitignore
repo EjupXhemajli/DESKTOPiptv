@@ -1,7 +1,0 @@
-bin/
-obj/
-publish/
-installer_out/
-*.user
-.vs/
-*.zip
