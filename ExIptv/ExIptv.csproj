@@ -40,6 +40,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- WPF-Projekte binden System.Net.Http und System.IO NICHT automatisch als
+         implizites Using ein – hier zentral nachziehen. -->
+    <Using Include="System.Net.Http" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- In die Assembly eingebettet, damit die Bilder zur Laufzeit immer verfügbar sind -->
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\logo_small.png" />
