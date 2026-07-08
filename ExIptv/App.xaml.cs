@@ -3,6 +3,7 @@ using System.Windows.Threading;
 using ExIptv.Services.Data;
 using ExIptv.Services.Player;
 using ExIptv.Services.Playlist;
+using ExIptv.Services.Settings;
 using ExIptv.Services.Xtream;
 using ExIptv.ViewModels;
 using ExIptv.Views;
@@ -53,6 +54,9 @@ public partial class App : Application
         // DB-Schema anlegen
         _services.GetRequiredService<IptvDatabase>().Initialize();
 
+        // Gespeichertes Farb-Theme anwenden, bevor das Fenster erscheint
+        ThemeManager.Apply(_services.GetRequiredService<SettingsService>().Current);
+
         var window = _services.GetRequiredService<MainWindow>();
         window.Show();
     }
@@ -67,10 +71,10 @@ public partial class App : Application
         })
         .AddPolicyHandler(GetRetryPolicy());
 
-        // Player-Einstellungen (später aus Settings-Datei ladbar)
-        sc.AddSingleton(new PlayerSettings());
+        // Einstellungen (persistent) + Player
+        sc.AddSingleton<SettingsService>();
         sc.AddSingleton(sp => new VlcPlayerService(
-            sp.GetRequiredService<PlayerSettings>(),
+            sp.GetRequiredService<SettingsService>(),
             Application.Current.Dispatcher));
 
         // Datenzugriff
@@ -85,6 +89,7 @@ public partial class App : Application
         // ViewModels
         sc.AddSingleton<MainViewModel>();
         sc.AddTransient<SourceDialogViewModel>();
+        sc.AddTransient<SettingsViewModel>();
 
         // Views
         sc.AddSingleton<MainWindow>();
@@ -109,6 +114,8 @@ public partial class App : Application
     {
         try
         {
+            // Laufzeit-Änderungen (Lautstärke, Bildformat) sichern
+            _services?.GetService<SettingsService>()?.Save();
             _services?.GetService<VlcPlayerService>()?.Dispose();
             _services?.Dispose();
         }

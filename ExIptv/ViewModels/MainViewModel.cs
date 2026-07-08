@@ -6,6 +6,7 @@ using ExIptv.Models;
 using ExIptv.Services.Data;
 using ExIptv.Services.Player;
 using ExIptv.Services.Playlist;
+using ExIptv.Services.Settings;
 using ExIptv.Services.Xtream;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -22,21 +23,29 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly PlaylistImportService _importer;
     private readonly XtreamClient _xtream;
     private readonly VlcPlayerService _player;
+    private readonly SettingsService _settings;
     private readonly IServiceProvider _services;
 
     private CancellationTokenSource? _searchCts;
+    private bool _suppressSeek;
 
     public MainViewModel(IptvRepository repo, PlaylistImportService importer,
-        XtreamClient xtream, VlcPlayerService player, IServiceProvider services)
+        XtreamClient xtream, VlcPlayerService player, SettingsService settings, IServiceProvider services)
     {
         _repo = repo;
         _importer = importer;
         _xtream = xtream;
         _player = player;
+        _settings = settings;
         _services = services;
 
         _player.StatusChanged += s => PlayerStatus = s;
-        _player.PlayingChanged += p => IsPlaying = p;
+        _player.PlayingChanged += OnPlayingChanged;
+        _player.TimeChanged += OnPlayerTimeChanged;
+        _player.MediaReady += OnMediaReady;
+
+        _volume = settings.Current.Volume;
+        _selectedAspectRatio = settings.Current.AspectRatio;
 
         LoadSources();
     }
@@ -114,7 +123,107 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _volume = 90;
     [ObservableProperty] private string _nowPlaying = "";
 
-    partial void OnVolumeChanged(int value) => _player.SetVolume(value);
+    partial void OnVolumeChanged(int value)
+    {
+        _player.SetVolume(value);
+        _settings.Current.Volume = value;
+    }
+
+    // ---------- Player-Overlay: Seek, Zeit, Bildformat, Spuren ----------
+
+    [ObservableProperty] private double _playbackPosition;   // 0..1
+    [ObservableProperty] private string _playbackTimeText = "00:00";
+    [ObservableProperty] private string _playbackLengthText = "00:00";
+    [ObservableProperty] private bool _canSeek;              // nur VOD/Serie & seekbar
+
+    public IReadOnlyList<string> AspectRatios { get; } = new[] { "Auto", "16:9", "4:3", "16:10", "Füllen" };
+    [ObservableProperty] private string _selectedAspectRatio = "Auto";
+
+    public ObservableCollection<TrackInfo> AudioTracks { get; } = new();
+    public ObservableCollection<TrackInfo> SubtitleTracks { get; } = new();
+    [ObservableProperty] private TrackInfo? _selectedAudioTrack;
+    [ObservableProperty] private TrackInfo? _selectedSubtitleTrack;
+
+    partial void OnPlaybackPositionChanged(double value)
+    {
+        if (_suppressSeek) return;   // vom Player gepusht -> nicht zurückspulen
+        _player.SeekTo(value);
+    }
+
+    partial void OnSelectedAspectRatioChanged(string value)
+    {
+        _player.SetAspectRatio(value);
+        _settings.Current.AspectRatio = value;
+    }
+
+    partial void OnSelectedAudioTrackChanged(TrackInfo? value)
+    {
+        if (value is { } t) _player.SetAudioTrack(t.Id);
+    }
+
+    partial void OnSelectedSubtitleTrackChanged(TrackInfo? value)
+    {
+        if (value is { } t) _player.SetSubtitleTrack(t.Id);
+    }
+
+    private void OnPlayingChanged(bool playing)
+    {
+        IsPlaying = playing;
+        if (playing) _player.SetAspectRatio(SelectedAspectRatio);
+    }
+
+    private void OnPlayerTimeChanged(long timeMs, long lengthMs)
+    {
+        _suppressSeek = true;
+        PlaybackPosition = lengthMs > 0 ? Math.Clamp((double)timeMs / lengthMs, 0, 1) : 0;
+        _suppressSeek = false;
+        PlaybackTimeText = FormatMs(timeMs);
+        PlaybackLengthText = FormatMs(lengthMs);
+        CanSeek = _player.IsSeekable && lengthMs > 0 && CurrentSection != ContentType.Live;
+    }
+
+    private void OnMediaReady() => RefreshTracks();
+
+    /// <summary>Lädt die verfügbaren Audio-/Untertitelspuren des aktuellen Mediums neu.</summary>
+    [RelayCommand]
+    private void RefreshTracks()
+    {
+        AudioTracks.Clear();
+        foreach (var t in _player.GetAudioTracks()) AudioTracks.Add(t);
+        SubtitleTracks.Clear();
+        SubtitleTracks.Add(new TrackInfo(-1, "Aus"));
+        foreach (var t in _player.GetSubtitleTracks()) SubtitleTracks.Add(t);
+
+        var curA = _player.CurrentAudioTrack;
+        _selectedAudioTrack = AudioTracks.Cast<TrackInfo?>().FirstOrDefault(t => t!.Value.Id == curA);
+        OnPropertyChanged(nameof(SelectedAudioTrack));
+        var curS = _player.CurrentSubtitleTrack;
+        _selectedSubtitleTrack = SubtitleTracks.Cast<TrackInfo?>().FirstOrDefault(t => t!.Value.Id == curS);
+        OnPropertyChanged(nameof(SelectedSubtitleTrack));
+    }
+
+    [RelayCommand] private void SeekForward() => _player.SeekRelative(15);
+    [RelayCommand] private void SeekBackward() => _player.SeekRelative(-15);
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        var vm = _services.GetRequiredService<SettingsViewModel>();
+        var dialog = new Views.SettingsDialog { DataContext = vm, Owner = Application.Current.MainWindow };
+        dialog.ShowDialog();
+
+        // Änderungen anwenden: Theme sofort, Player-Optionen beim nächsten Start.
+        ThemeManager.Apply(_settings.Current);
+        Volume = _settings.Current.Volume;
+        _ = LoadSectionAsync(); // falls sich Quellen/Filter geändert haben
+    }
+
+    private static string FormatMs(long ms)
+    {
+        if (ms <= 0) return "00:00";
+        var t = TimeSpan.FromMilliseconds(ms);
+        return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss");
+    }
 
     // ---------- Laden ----------
 

@@ -48,8 +48,10 @@
                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
                     <ProgressBar IsIndeterminate="True" Width="120" Height="4"
                                  Background="Transparent" Foreground="{StaticResource AccentBrush}"
-                                 BorderThickness="0"
+                                 BorderThickness="0" Margin="0,0,12,0"
                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+                    <Button Content="⚙  Einstellungen" Style="{StaticResource FlatButton}"
+                            Command="{Binding OpenSettingsCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -129,13 +131,9 @@
                                  ItemContainerStyle="{StaticResource RowItem}"
                                  ItemsSource="{Binding Items}"
                                  SelectedItem="{Binding SelectedItem}"
+                                 MouseDoubleClick="OnContentDoubleClick"
                                  VirtualizingStackPanel.IsVirtualizing="True"
                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.InputBindings>
-                                <MouseBinding MouseAction="LeftDoubleClick"
-                                              Command="{Binding ActivateItemCommand}"
-                                              CommandParameter="{Binding SelectedItem}"/>
-                            </ListBox.InputBindings>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
@@ -171,13 +169,9 @@
                             <ListBox Style="{StaticResource CleanListBox}"
                                      ItemContainerStyle="{StaticResource RowItem}"
                                      ItemsSource="{Binding Episodes}"
+                                     MouseDoubleClick="OnEpisodeDoubleClick"
                                      VirtualizingStackPanel.IsVirtualizing="True"
                                      VirtualizingStackPanel.VirtualizationMode="Recycling">
-                                <ListBox.InputBindings>
-                                    <MouseBinding MouseAction="LeftDoubleClick"
-                                                  Command="{Binding PlayEpisodeCommand}"
-                                                  CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-                                </ListBox.InputBindings>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Display}" FontSize="13" TextTrimming="CharacterEllipsis"/>
@@ -208,35 +202,74 @@
                                Foreground="#FF556070" Margin="0,10,0,0"/>
                 </StackPanel>
 
-                <!-- Player-Leiste -->
-                <Border Grid.Row="1" Background="{StaticResource PanelBrush}" Padding="14,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                <!-- Player-Leiste (Steuerung unter dem Video – Airspace-sicher) -->
+                <Border Grid.Row="1" Background="{StaticResource PanelBrush}" Padding="14,8">
+                    <StackPanel>
+                        <!-- Spulleiste: nur bei Filmen/Serien -->
+                        <Grid Margin="0,0,0,6"
+                              Visibility="{Binding CanSeek, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding PlaybackTimeText}" VerticalAlignment="Center"
+                                       FontSize="11" Foreground="{StaticResource TextDimBrush}" Margin="0,0,10,0"/>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" VerticalAlignment="Center"
+                                    Value="{Binding PlaybackPosition}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding PlaybackLengthText}" VerticalAlignment="Center"
+                                       FontSize="11" Foreground="{StaticResource TextDimBrush}" Margin="10,0,0,0"/>
+                        </Grid>
 
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="⏯" Style="{StaticResource FlatButton}" FontSize="16"
-                                    Command="{Binding TogglePauseCommand}" Margin="0,0,6,0" Padding="14,4"/>
-                            <Button Content="⏹" Style="{StaticResource FlatButton}" FontSize="16"
-                                    Command="{Binding StopPlaybackCommand}" Padding="14,4"/>
-                        </StackPanel>
+                        <!-- Steuerzeile -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0">
-                            <TextBlock Text="{Binding NowPlaying}" TextTrimming="CharacterEllipsis"
-                                       FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Text="{Binding PlayerStatus}" Foreground="{StaticResource TextDimBrush}"
-                                       FontSize="11"/>
-                        </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="↺ 15" Style="{StaticResource FlatButton}" FontSize="13"
+                                        Command="{Binding SeekBackwardCommand}" Padding="10,4" Margin="0,0,6,0"
+                                        Visibility="{Binding CanSeek, Converter={StaticResource BoolToVis}}"/>
+                                <Button Content="⏯" Style="{StaticResource FlatButton}" FontSize="16"
+                                        Command="{Binding TogglePauseCommand}" Margin="0,0,6,0" Padding="14,4"/>
+                                <Button Content="⏹" Style="{StaticResource FlatButton}" FontSize="16"
+                                        Command="{Binding StopPlaybackCommand}" Padding="14,4"/>
+                                <Button Content="15 ↻" Style="{StaticResource FlatButton}" FontSize="13"
+                                        Command="{Binding SeekForwardCommand}" Padding="10,4" Margin="6,0,0,0"
+                                        Visibility="{Binding CanSeek, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
 
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="🔊" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <Slider Width="110" Minimum="0" Maximum="100"
-                                    Value="{Binding Volume}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0">
+                                <TextBlock Text="{Binding NowPlaying}" TextTrimming="CharacterEllipsis"
+                                           FontWeight="SemiBold" FontSize="13"/>
+                                <TextBlock Text="{Binding PlayerStatus}" Foreground="{StaticResource TextDimBrush}"
+                                           FontSize="11"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Bildformat (auch für Live) -->
+                                <ComboBox Width="86" Margin="0,0,6,0" ToolTip="Bildformat"
+                                          ItemsSource="{Binding AspectRatios}"
+                                          SelectedItem="{Binding SelectedAspectRatio}"/>
+                                <!-- Tonspur -->
+                                <ComboBox Width="104" Margin="0,0,6,0" ToolTip="Tonspur"
+                                          ItemsSource="{Binding AudioTracks}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding SelectedAudioTrack}"
+                                          DropDownOpened="OnTracksDropDownOpened"/>
+                                <!-- Untertitel -->
+                                <ComboBox Width="104" Margin="0,0,12,0" ToolTip="Untertitel"
+                                          ItemsSource="{Binding SubtitleTracks}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding SelectedSubtitleTrack}"
+                                          DropDownOpened="OnTracksDropDownOpened"/>
+                                <TextBlock Text="🔊" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Slider Width="90" Minimum="0" Maximum="100"
+                                        Value="{Binding Volume}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Grid>
