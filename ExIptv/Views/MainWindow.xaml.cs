@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using ExIptv.Models;
 using ExIptv.Services.Player;
 using ExIptv.ViewModels;
@@ -12,6 +14,18 @@ public partial class MainWindow : Window
 {
     private readonly VlcPlayerService _player;
 
+    // Auto-Hide der Steuerleiste im Vollbild: Mausbewegung über dem nativen VideoView erreicht
+    // WPF nicht (Airspace). Deshalb wird die Cursorposition per Win32 gepollt.
+    private readonly DispatcherTimer _cursorTimer;
+    private POINT _lastCursor;
+    private DateTime _lastCursorMove = DateTime.UtcNow;
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
     public MainWindow(MainViewModel viewModel, VlcPlayerService player)
     {
         InitializeComponent();
@@ -19,7 +33,42 @@ public partial class MainWindow : Window
         _player = player;
         // Subscription im Konstruktor: kann so nicht durch einen frühen Abbruch in OnLoaded ausfallen.
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        _cursorTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _cursorTimer.Tick += OnCursorTimerTick;
+        _cursorTimer.Start();
+
         Loaded += OnLoaded;
+    }
+
+    private void OnCursorTimerTick(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || !vm.IsFullscreen) return;
+
+        GetCursorPos(out var p);
+        var moved = Math.Abs(p.X - _lastCursor.X) > 2 || Math.Abs(p.Y - _lastCursor.Y) > 2;
+        if (moved)
+        {
+            _lastCursor = p;
+            _lastCursorMove = DateTime.UtcNow;
+            if (PlayerBar.Visibility != Visibility.Visible) PlayerBar.Visibility = Visibility.Visible;
+        }
+        else if (PlayerBar.Visibility == Visibility.Visible
+                 && (DateTime.UtcNow - _lastCursorMove).TotalSeconds > 3)
+        {
+            PlayerBar.Visibility = Visibility.Collapsed;   // nach 3 s Ruhe ausblenden
+        }
+    }
+
+    // Live: Einzelklick (Auswahl) schaltet sofort um -> schnelles Zappen ohne Doppelklick.
+    private void OnLiveSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm
+            && vm.CurrentSection == ContentType.Live
+            && sender is ListBox { SelectedItem: PlayableItem item })
+        {
+            vm.ActivateItemCommand.Execute(item);
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
