@@ -289,6 +289,20 @@ public sealed class IptvRepository
         }
     }
 
+    /// <summary>Schreibt ein nachgeladenes Film-Poster zurück (Cache für künftige Sitzungen).</summary>
+    public void UpdateVodPoster(int id, string posterUrl)
+    {
+        using var conn = _db.OpenConnection();
+        conn.Execute("UPDATE vod_streams SET PosterUrl=@P WHERE Id=@I", new { P = posterUrl, I = id });
+    }
+
+    /// <summary>Schreibt ein nachgeladenes Serien-Cover zurück.</summary>
+    public void UpdateSeriesPoster(int id, string posterUrl)
+    {
+        using var conn = _db.OpenConnection();
+        conn.Execute("UPDATE series SET PosterUrl=@P WHERE Id=@I", new { P = posterUrl, I = id });
+    }
+
     private static SqliteParameter[] AddParams(SqliteCommand cmd, params string[] names)
     {
         var arr = new SqliteParameter[names.Length];

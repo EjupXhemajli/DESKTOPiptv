@@ -106,7 +106,7 @@ public sealed class XtreamClient
                 SourceId = s.Id,
                 ExternalId = streamId,
                 Name = d.Name?.Trim() ?? "Unbenannt",
-                LogoUrl = NullIfEmpty(d.StreamIcon),
+                LogoUrl = NormalizeImageUrl(s, d.StreamIcon),
                 EpgChannelId = NullIfEmpty(d.EpgChannelId),
                 CategoryExternalId = AsString(d.CategoryId),
                 StreamUrl = $"{s.Host!.TrimEnd('/')}/live/{s.Username}/{s.Password}/{streamId}.ts"
@@ -132,7 +132,7 @@ public sealed class XtreamClient
                 SourceId = s.Id,
                 ExternalId = streamId,
                 Name = d.Name?.Trim() ?? "Unbenannt",
-                PosterUrl = NullIfEmpty(d.StreamIcon) ?? NullIfEmpty(d.Cover) ?? NullIfEmpty(d.MovieImage),
+                PosterUrl = NormalizeImageUrl(s, d.StreamIcon) ?? NormalizeImageUrl(s, d.Cover) ?? NormalizeImageUrl(s, d.MovieImage),
                 ContainerExtension = ext,
                 CategoryExternalId = AsString(d.CategoryId),
                 Rating = ParseDouble(d.Rating),
@@ -159,7 +159,7 @@ public sealed class XtreamClient
                 SourceId = s.Id,
                 ExternalId = seriesId,
                 Name = d.Name?.Trim() ?? "Unbenannt",
-                PosterUrl = NullIfEmpty(d.Cover),
+                PosterUrl = NormalizeImageUrl(s, d.Cover),
                 Plot = NullIfEmpty(d.Plot),
                 CategoryExternalId = AsString(d.CategoryId),
                 Rating = ParseDouble(d.Rating)
@@ -230,6 +230,67 @@ public sealed class XtreamClient
     };
 
     private static string? NullIfEmpty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>
+    /// Bereinigt Bild-URLs vom Panel: "null"/"0"-Platzhalter, Leerzeichen, protokoll-relative
+    /// (//host/…) und relative Pfade (/images/x.jpg) – letztere werden gegen den Panel-Host aufgelöst.
+    /// </summary>
+    private static string? NormalizeImageUrl(PlaylistSource s, string? raw)
+    {
+        var u = NullIfEmpty(raw);
+        if (u is null or "null" or "0" or "-") return null;
+        u = u.Replace(" ", "%20");
+        if (u.StartsWith("//")) return "http:" + u;
+        if (u.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            u.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return u;
+        return $"{s.Host!.TrimEnd('/')}/{u.TrimStart('/')}";   // relativ -> absolut
+    }
+
+    /// <summary>
+    /// Holt das Poster eines einzelnen Films über get_vod_info (Panels liefern in der Listen-API
+    /// oft kein Bild, wohl aber in der Detail-API: info.movie_image / info.cover_big).
+    /// </summary>
+    public async Task<string?> GetVodPosterAsync(PlaylistSource s, string vodId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"{BaseApi(s)}&action=get_vod_info&vod_id={Uri.EscapeDataString(vodId)}";
+            using var doc = JsonDocument.Parse(await Http.GetStringAsync(url, ct));
+            if (!doc.RootElement.TryGetProperty("info", out var info) || info.ValueKind != JsonValueKind.Object)
+                return null;
+            var raw = ReadString(info, "movie_image") ?? ReadString(info, "cover_big") ?? ReadString(info, "cover");
+            return NormalizeImageUrl(s, raw);
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "get_vod_info für Poster fehlgeschlagen (vod_id={Id})", vodId);
+            return null;
+        }
+    }
+
+    /// <summary>Holt das Cover einer Serie über get_series_info (info.cover).</summary>
+    public async Task<string?> GetSeriesPosterAsync(PlaylistSource s, string seriesId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"{BaseApi(s)}&action=get_series_info&series_id={Uri.EscapeDataString(seriesId)}";
+            using var doc = JsonDocument.Parse(await Http.GetStringAsync(url, ct));
+            if (!doc.RootElement.TryGetProperty("info", out var info) || info.ValueKind != JsonValueKind.Object)
+                return null;
+            var raw = ReadString(info, "cover") ?? ReadString(info, "poster_path");
+            return NormalizeImageUrl(s, raw);
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "get_series_info für Cover fehlgeschlagen (series_id={Id})", seriesId);
+            return null;
+        }
+    }
+
+    private static string? ReadString(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+            ? NullIfEmpty(v.GetString())
+            : null;
 
     private static double? ParseDouble(string? v) =>
         double.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;

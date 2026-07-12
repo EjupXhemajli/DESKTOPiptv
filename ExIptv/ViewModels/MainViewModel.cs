@@ -350,15 +350,75 @@ public sealed partial class MainViewModel : ObservableObject
             Items.Clear();
             foreach (var it in loaded) Items.Add(it);
             var vodLimited = section is ContentType.Movie or ContentType.Series && Items.Count >= 500;
-            StatusText = vodLimited
-                ? $"{Items.Count} angezeigt – Kategorie oder Suche eingrenzen"
-                : $"{Items.Count} Einträge";
+            if (section is ContentType.Movie or ContentType.Series)
+            {
+                var withPoster = Items.Count(i => !string.IsNullOrEmpty(i.LogoUrl));
+                StatusText = vodLimited
+                    ? $"{Items.Count} angezeigt ({withPoster} mit Poster) – Kategorie oder Suche eingrenzen"
+                    : $"{Items.Count} Einträge · {withPoster} mit Poster";
+
+                // Fehlende Poster über die Detail-API nachladen (viele Panels liefern in der
+                // Listen-API keine Bilder). Gedrosselt; Ergebnisse werden in die DB geschrieben,
+                // sodass sie beim nächsten Mal sofort da sind.
+                var source = SelectedSource;
+                if (source is { Type: SourceType.Xtream })
+                {
+                    var missing = Items.Where(i => string.IsNullOrEmpty(i.LogoUrl)).ToList();
+                    if (missing.Count > 0) _ = EnrichPostersAsync(gen, source, missing, section);
+                }
+            }
+            else
+            {
+                StatusText = $"{Items.Count} Einträge";
+            }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Fehler beim Laden der Inhalte");
             StatusText = "Fehler beim Laden der Inhalte.";
         }
+    }
+
+    /// <summary>
+    /// Lädt fehlende Poster einzeln über get_vod_info / get_series_info nach.
+    /// Läuft gedrosselt (3 parallel), bricht bei Kategorienwechsel ab (Generationszähler)
+    /// und schreibt gefundene URLs in die DB zurück.
+    /// </summary>
+    private async Task EnrichPostersAsync(int gen, PlaylistSource source, List<PlayableItem> missing, ContentType section)
+    {
+        var gate = new SemaphoreSlim(3);
+        var found = 0;
+        try
+        {
+            var tasks = missing.Select(async item =>
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    if (gen != _loadGeneration) return;
+                    var url = section == ContentType.Movie
+                        ? await _xtream.GetVodPosterAsync(source, item.ExternalId)
+                        : await _xtream.GetSeriesPosterAsync(source, item.ExternalId);
+                    if (url is null || gen != _loadGeneration) return;
+
+                    item.LogoUrl = url;   // beobachtbar -> Kachel lädt das Bild sofort nach
+                    Interlocked.Increment(ref found);
+                    try
+                    {
+                        if (section == ContentType.Movie) _repo.UpdateVodPoster(item.DbId, url);
+                        else _repo.UpdateSeriesPoster(item.DbId, url);
+                    }
+                    catch (Exception ex) { Log.Debug(ex, "Poster-Rückschreiben fehlgeschlagen"); }
+                }
+                catch (Exception ex) { Log.Debug(ex, "Poster-Nachladen fehlgeschlagen"); }
+                finally { gate.Release(); }
+            });
+            await Task.WhenAll(tasks);
+        }
+        finally { gate.Dispose(); }
+
+        if (gen == _loadGeneration && found > 0)
+            StatusText = $"{Items.Count} Einträge · {found} Poster nachgeladen";
     }
 
     private void DebouncedSearch()
