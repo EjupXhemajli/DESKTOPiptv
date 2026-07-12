@@ -25,3 +25,7 @@ Lebenszyklus (OnExit: Settings.Save + Player.Dispose), Volume-/AspectRatio-Persi
 - V2: EPG-Anzeige (Programm jetzt/gleich) für Live. Nutzen hoch / Aufwand hoch.
 - V3: Cache-Eviction LRU statt Clear-Deckel. Nutzen niedrig / Aufwand niedrig.
 - V4: Stalker/MAC-Portal-Quellen (Phase 2 laut Plan).
+
+## Nachtrag 2026-07-12 (v0.9)
+- **K1-Korrektur:** Wurzelursache der unsichtbaren PasswordBox war NICHT (nur) das fehlende Template, sondern die feste Dialoghöhe 480px bei NoResize: Xtream-Modus-Inhalt ≈493px → unterstes Element (PasswordBox) abgeschnitten, nur Oberkante sichtbar. Auto-Modus (Standard) passte immer — daher „früher kein Problem". Fix: SizeToContent=Height (Min 420 / Max 720), Inhalts-Zeile Auto. Template-Fix aus v0.8 bleibt (Optik-Konsistenz).
+- **Diagnose ausgebaut:** Version im Fenstertitel (Screenshot-Beweis), Info-Log mit Beispiel-Poster-URLs nach VOD-Load, Accept-Header für Bild-Downloads.

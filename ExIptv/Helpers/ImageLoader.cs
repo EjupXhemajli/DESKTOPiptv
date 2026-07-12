@@ -36,6 +36,7 @@ public static class ImageLoader
         client.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "image/avif,image/webp,image/*,*/*;q=0.8");
         return client;
     }
 

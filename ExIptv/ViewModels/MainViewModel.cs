@@ -353,6 +353,10 @@ public sealed partial class MainViewModel : ObservableObject
             if (section is ContentType.Movie or ContentType.Series)
             {
                 var withPoster = Items.Count(i => !string.IsNullOrEmpty(i.LogoUrl));
+                // Diagnose: belegt im Log, ob und welche Bild-URLs in der DB liegen.
+                var samples = Items.Where(i => !string.IsNullOrEmpty(i.LogoUrl)).Take(2).Select(i => i.LogoUrl).ToList();
+                Log.Information("VOD geladen: {Count} Einträge, {WithPoster} mit Poster-URL. Beispiele: {Samples}",
+                    Items.Count, withPoster, samples.Count > 0 ? string.Join(" | ", samples) : "(keine)");
                 StatusText = vodLimited
                     ? $"{Items.Count} angezeigt ({withPoster} mit Poster) – Kategorie oder Suche eingrenzen"
                     : $"{Items.Count} Einträge · {withPoster} mit Poster";
