@@ -350,6 +350,16 @@
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- Verstellbare Spaltenbreiten (liegen über den Spaltenrändern) -->
+            <GridSplitter x:Name="SplitCat" Grid.Column="0" Width="6" HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch" Background="Transparent"
+                          ResizeBehavior="CurrentAndNext" ResizeDirection="Columns"
+                          DragCompleted="OnSplitterDragCompleted"/>
+            <GridSplitter x:Name="SplitContent" Grid.Column="1" Width="6" HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch" Background="Transparent"
+                          ResizeBehavior="CurrentAndNext" ResizeDirection="Columns"
+                          DragCompleted="OnSplitterDragCompleted"/>
         </Grid>
 
         <!-- ===== Statusleiste ===== -->
@@ -361,7 +371,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextDimBrush}" FontSize="12"/>
-                <TextBlock Grid.Column="1" Text="EX-IPTV v0.4 · Poster-Bilder + Steuerung + Zapping"
+                <TextBlock Grid.Column="1" Text="EX-IPTV v0.5 · Stabil + Watchdog + verstellbare Spalten"
                            Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Grid>
         </Border>

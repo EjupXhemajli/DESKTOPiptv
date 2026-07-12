@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +18,9 @@ public static class ImageLoader
 {
     private static readonly HttpClient _http = CreateClient();
     private static readonly ConcurrentDictionary<string, BitmapImage> _cache = new();
+    // Höchstens wenige parallele Downloads – sonst konkurrieren hunderte Poster-Requests
+    // mit dem laufenden Video-Stream um Bandbreite (Ruckeln/Einfrieren).
+    private static readonly SemaphoreSlim _gate = new(4);
 
     private static HttpClient CreateClient()
     {
@@ -57,7 +61,16 @@ public static class ImageLoader
 
         try
         {
-            var bytes = await _http.GetByteArrayAsync(url).ConfigureAwait(true);
+            byte[] bytes;
+            await _gate.WaitAsync().ConfigureAwait(true);
+            try
+            {
+                // Zeigt das Element inzwischen eine andere URL? Dann Download sparen.
+                if (GetSourceUrl(img) != url) return;
+                bytes = await _http.GetByteArrayAsync(url).ConfigureAwait(true);
+            }
+            finally { _gate.Release(); }
+
             var bmp = await Task.Run(() =>
             {
                 var b = new BitmapImage();

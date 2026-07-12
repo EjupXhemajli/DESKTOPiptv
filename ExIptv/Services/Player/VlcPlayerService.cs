@@ -26,7 +26,14 @@ public sealed class VlcPlayerService : IDisposable
     private ContentType _currentType = ContentType.Live;
     private int _reconnectAttempts;
     private volatile bool _isReconnecting;
+    private volatile bool _reconnectExhausted;
+    private volatile bool _isPaused;
     private volatile bool _disposed;
+
+    // Stall-Watchdog: erkennt eingefrorene Wiedergabe (Zeit läuft nicht weiter, obwohl gespielt wird).
+    private DispatcherTimer? _watchdog;
+    private long _lastPosMs = -1;
+    private DateTime _lastAdvanceUtc = DateTime.UtcNow;
 
     private AppSettings S => _settingsService.Current;
 
@@ -69,9 +76,22 @@ public sealed class VlcPlayerService : IDisposable
         _player.EndReached += OnEndReached;
         _player.Playing += OnPlaying;
         _player.Buffering += OnBuffering;
-        _player.Paused += (_, _) => Raise(() => PlayingChanged?.Invoke(false));
+        _player.Paused += (_, _) => { _isPaused = true; Raise(() => PlayingChanged?.Invoke(false)); };
         _player.Stopped += (_, _) => Raise(() => PlayingChanged?.Invoke(false));
-        _player.TimeChanged += (_, e) => Raise(() => TimeChanged?.Invoke(e.Time, _player?.Length ?? 0));
+        _player.TimeChanged += (_, e) => Raise(() =>
+        {
+            var t = e.Time;
+            if (t != _lastPosMs) { _lastPosMs = t; _lastAdvanceUtc = DateTime.UtcNow; }
+            TimeChanged?.Invoke(t, _player?.Length ?? 0);
+        });
+
+        // Watchdog gegen eingefrorene Wiedergabe (läuft auf dem UI-Thread über den Dispatcher).
+        _watchdog = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _watchdog.Tick += OnWatchdogTick;
+        _watchdog.Start();
 
         Log.Information("VLC initialisiert (net={Net}ms live={Live}ms)", S.NetworkCachingMs, S.LiveCachingMs);
     }
@@ -83,21 +103,34 @@ public sealed class VlcPlayerService : IDisposable
         _currentUrl = url;
         _currentType = type;
         _reconnectAttempts = 0;
+        _reconnectExhausted = false;
+        _isPaused = false;
         StartMedia(url, type);
     }
 
-    private void StartMedia(string url, ContentType type)
+    private void StartMedia(string url, ContentType type, double startSeconds = 0)
     {
         if (_libVlc is null || _player is null) return;
 
         var media = new Media(_libVlc, new Uri(url));
-        var caching = type == ContentType.Live ? S.LiveCachingMs : S.NetworkCachingMs;
+
+        // VOD braucht deutlich mehr Puffer als Live, sonst friert die Wiedergabe bei
+        // Bandbreitenschwankungen ein. Untergrenze 3000 ms, auch wenn die Einstellung kleiner ist.
+        var caching = type == ContentType.Live ? S.LiveCachingMs : Math.Max(S.NetworkCachingMs, 3000);
         media.AddOption($":network-caching={caching}");
         if (type == ContentType.Live)
+        {
             media.AddOption($":live-caching={S.LiveCachingMs}");
-        else if (S.FileCaching)
-            media.AddOption($":file-caching={S.NetworkCachingMs}");
-        if (S.HttpReconnect)
+        }
+        else
+        {
+            media.AddOption($":file-caching={caching}");
+            media.AddOption(":http-reconnect");   // bei VOD-Abbruch automatisch neu verbinden
+            // An letzter Position fortsetzen (nach Stall/Abbruch), sofern der Server Seeking erlaubt.
+            if (startSeconds > 1)
+                media.AddOption($":start-time={startSeconds:0.###}");
+        }
+        if (S.HttpReconnect && type == ContentType.Live)
             media.AddOption(":http-reconnect");
 
         // Decode-Profil (pro Inhaltstyp)
@@ -120,6 +153,9 @@ public sealed class VlcPlayerService : IDisposable
             media.AddOption(opt);
 
         _player.Play(media);
+        _lastAdvanceUtc = DateTime.UtcNow;   // Watchdog-Frist nach (Neu-)Start zurücksetzen
+        _lastPosMs = -1;
+        _isPaused = false;
         Raise(() => StatusChanged?.Invoke("Verbinde…"));
 
         var previous = _currentMedia;
@@ -164,7 +200,8 @@ public sealed class VlcPlayerService : IDisposable
 
     public void Stop()
     {
-        _currentUrl = null;
+        _currentUrl = null;            // stoppt Watchdog und laufende Neuverbindung
+        _reconnectExhausted = false;
         try { _player?.Stop(); } catch (Exception ex) { Log.Debug(ex, "Stop fehlgeschlagen"); }
     }
 
@@ -249,6 +286,7 @@ public sealed class VlcPlayerService : IDisposable
 
     private void OnPlaying(object? sender, EventArgs e) => Raise(() =>
     {
+        _isPaused = false;
         PlayingChanged?.Invoke(true);
         StatusChanged?.Invoke("Wiedergabe");
         MediaReady?.Invoke();
@@ -259,8 +297,12 @@ public sealed class VlcPlayerService : IDisposable
 
     private void OnEndReached(object? sender, EventArgs e)
     {
+        var len = _player?.Length ?? 0;
+        var nearEnd = len > 0 && _lastPosMs >= len * 0.97;   // wirklich zu Ende gesehen
         if (_currentType == ContentType.Live && S.AutoReconnect)
             TryReconnect("Stream beendet");
+        else if (_currentType != ContentType.Live && S.AutoReconnect && len > 0 && !nearEnd)
+            TryReconnect("Abbruch");                          // VOD vorzeitig abgebrochen -> an Position weiter
         else
             Raise(() => { PlayingChanged?.Invoke(false); StatusChanged?.Invoke("Beendet"); });
     }
@@ -272,15 +314,35 @@ public sealed class VlcPlayerService : IDisposable
         else Raise(() => StatusChanged?.Invoke("Fehler bei der Wiedergabe"));
     }
 
+    // Erkennt eingefrorene Wiedergabe: Zustand ist "spielt" (nicht pausiert), aber die Zeit
+    // steht seit >15 s. LibVLC feuert dabei oft kein Event, daher dieser aktive Wächter.
+    private void OnWatchdogTick(object? sender, EventArgs e)
+    {
+        if (_disposed || _player is null || _currentUrl is null) return;
+        if (_isReconnecting || _reconnectExhausted || _isPaused || !S.AutoReconnect) return;
+        if (!_player.IsPlaying) return;
+        var stalled = (DateTime.UtcNow - _lastAdvanceUtc).TotalSeconds;
+        if (stalled > 15)
+        {
+            Log.Warning("Wiedergabe eingefroren ({Sec:0}s ohne Fortschritt) – Neuverbindung", stalled);
+            TryReconnect("Eingefroren");
+        }
+    }
+
     private void TryReconnect(string reason)
     {
-        if (_isReconnecting || _disposed || _currentUrl is null) return;
+        if (_isReconnecting || _reconnectExhausted || _disposed || _currentUrl is null) return;
         _isReconnecting = true;
         _ = Task.Run(async () =>
         {
             var url = _currentUrl;
             var type = _currentType;
-            var maxAttempts = S.MaxReconnectAttempts;
+            var maxAttempts = Math.Max(1, S.MaxReconnectAttempts);
+            // VOD an der zuletzt bekannten Position fortsetzen (kleiner Rücksprung als Puffer).
+            var resumeSeconds = type != ContentType.Live && _lastPosMs > 3000
+                ? _lastPosMs / 1000.0 - 2
+                : 0;
+
             while (!_disposed && url is not null && _reconnectAttempts < maxAttempts)
             {
                 _reconnectAttempts++;
@@ -290,14 +352,23 @@ public sealed class VlcPlayerService : IDisposable
                 if (_disposed || _currentUrl != url) break;
                 try
                 {
-                    StartMedia(url, type);
-                    await Task.Delay(2500);
-                    if (_player is { IsPlaying: true }) { _reconnectAttempts = 0; break; }
+                    StartMedia(url, type, resumeSeconds);
+                    await Task.Delay(3000);
+                    if (_player is { IsPlaying: true })
+                    {
+                        _reconnectAttempts = 0;
+                        _isReconnecting = false;
+                        return;
+                    }
                 }
                 catch (Exception ex) { Log.Warning(ex, "Reconnect fehlgeschlagen"); }
             }
+
             if (_reconnectAttempts >= maxAttempts)
+            {
+                _reconnectExhausted = true;   // kein Dauer-Neuverbinden mehr, bis der Nutzer neu wählt
                 Raise(() => StatusChanged?.Invoke("Verbindung dauerhaft verloren. Bitte erneut wählen."));
+            }
             _isReconnecting = false;
         });
     }
@@ -315,6 +386,7 @@ public sealed class VlcPlayerService : IDisposable
         _disposed = true;
         try
         {
+            _watchdog?.Stop();
             if (_player is not null)
             {
                 _player.EncounteredError -= OnEncounteredError;

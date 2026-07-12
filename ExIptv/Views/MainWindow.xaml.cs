@@ -20,6 +20,10 @@ public partial class MainWindow : Window
     private POINT _lastCursor;
     private DateTime _lastCursorMove = DateTime.UtcNow;
 
+    // Vom Nutzer gewählte Spaltenbreiten (per GridSplitter), Standard beim Start.
+    private GridLength _catWidth = new(240);
+    private GridLength _contentWidth = new(340);
+
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -104,6 +108,8 @@ public partial class MainWindow : Window
             ToolbarBar.Visibility = Visibility.Collapsed;
             StatusBar.Visibility = Visibility.Collapsed;
             PlayerBar.Visibility = Visibility.Collapsed;
+            SplitCat.Visibility = Visibility.Collapsed;
+            SplitContent.Visibility = Visibility.Collapsed;
             CatCol.Width = new GridLength(0);
             ContentCol.Width = new GridLength(0);
             PlayerCol.Width = new GridLength(1, GridUnitType.Star);
@@ -119,7 +125,8 @@ public partial class MainWindow : Window
             ToolbarBar.Visibility = Visibility.Visible;
             StatusBar.Visibility = Visibility.Visible;
             PlayerBar.Visibility = Visibility.Visible;
-            CatCol.Width = new GridLength(240);
+            SplitCat.Visibility = Visibility.Visible;                 // Kategorienbreite immer verstellbar
+            CatCol.Width = _catWidth;                                 // vom Nutzer gewählte Breite
 
             WindowStyle = WindowStyle.SingleBorderWindow;
             ResizeMode = ResizeMode.CanResize;
@@ -127,15 +134,25 @@ public partial class MainWindow : Window
 
             if (grid)
             {
+                // Filme/Serien: Poster-Grid füllt, keine Player-Spalte -> Content-Splitter sinnlos.
                 ContentCol.Width = new GridLength(1, GridUnitType.Star);
                 PlayerCol.Width = new GridLength(0);
+                SplitContent.Visibility = Visibility.Collapsed;
             }
             else
             {
-                ContentCol.Width = new GridLength(340);
+                ContentCol.Width = _contentWidth;
                 PlayerCol.Width = new GridLength(1, GridUnitType.Star);
+                SplitContent.Visibility = Visibility.Visible;         // Liste/Player-Grenze verstellbar
             }
         }
+    }
+
+    // Vom Nutzer gezogene Spaltenbreiten merken, damit ApplyLayout sie nicht zurücksetzt.
+    private void OnSplitterDragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (CatCol.Width.IsAbsolute && CatCol.Width.Value > 80) _catWidth = CatCol.Width;
+        if (ContentCol.Width.IsAbsolute && ContentCol.Width.Value > 120) _contentWidth = ContentCol.Width;
     }
 
     private void OnToggleFullscreen(object sender, RoutedEventArgs e)
