@@ -32,7 +32,7 @@ public partial class App : Application
         Directory.CreateDirectory(logDir);
 
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
+            .MinimumLevel.Debug()   // Poster-/Player-Diagnosen loggen auf Debug; 7-Tage-Rotation begrenzt die Größe
             .WriteTo.Debug()
             .WriteTo.File(Path.Combine(logDir, "exiptv-.log"),
                 rollingInterval: RollingInterval.Day,

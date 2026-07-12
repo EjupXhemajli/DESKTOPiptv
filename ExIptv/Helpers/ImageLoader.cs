@@ -21,6 +21,8 @@ public static class ImageLoader
     // Höchstens wenige parallele Downloads – sonst konkurrieren hunderte Poster-Requests
     // mit dem laufenden Video-Stream um Bandbreite (Ruckeln/Einfrieren).
     private static readonly SemaphoreSlim _gate = new(4);
+    // Cache-Deckel: ~800 Bilder à ~240 KB (200 px dekodiert) ≈ 190 MB Obergrenze.
+    private const int CacheLimit = 800;
 
     private static HttpClient CreateClient()
     {
@@ -45,7 +47,7 @@ public static class ImageLoader
     public static void SetSourceUrl(DependencyObject o, string? value) => o.SetValue(SourceUrlProperty, value);
     public static string? GetSourceUrl(DependencyObject o) => (string?)o.GetValue(SourceUrlProperty);
 
-    private static async void OnSourceUrlChanged(DependencyObject o, DependencyPropertyChangedEventArgs e)
+    private static void OnSourceUrlChanged(DependencyObject o, DependencyPropertyChangedEventArgs e)
     {
         if (o is not Image img) return;
 
@@ -55,10 +57,15 @@ public static class ImageLoader
 
         if (_cache.TryGetValue(url, out var cached))
         {
-            if (GetSourceUrl(img) == url) img.Source = cached;
+            img.Source = cached;
             return;
         }
 
+        _ = LoadAsync(img, url);   // bewusst abgekoppelt; LoadAsync fängt alle Fehler selbst
+    }
+
+    private static async Task LoadAsync(Image img, string url)
+    {
         try
         {
             byte[] bytes;
@@ -83,6 +90,7 @@ public static class ImageLoader
                 return b;
             }).ConfigureAwait(true);
 
+            if (_cache.Count >= CacheLimit) _cache.Clear();   // simpler Deckel gegen unbegrenztes Wachstum
             _cache[url] = bmp;
             // Prüfen, ob dieses Image inzwischen eine andere URL zeigt (Recycling/schnelles Scrollen).
             if (GetSourceUrl(img) == url) img.Source = bmp;

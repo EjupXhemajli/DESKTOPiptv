@@ -125,7 +125,8 @@ public sealed class VlcPlayerService : IDisposable
         }
         else
         {
-            media.AddOption($":file-caching={caching}");
+            if (S.FileCaching)
+                media.AddOption($":file-caching={caching}");
             media.AddOption(":http-reconnect");   // bei VOD-Abbruch automatisch neu verbinden
             // An letzter Position fortsetzen (nach Stall/Abbruch), sofern der Server Seeking erlaubt.
             if (startSeconds > 1)

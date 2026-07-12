@@ -375,7 +375,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextDimBrush}" FontSize="12"/>
-                <TextBlock Grid.Column="1" Text="EX-IPTV v0.7 · Poster-Nachladen aktiv"
+                <TextBlock Grid.Column="1" Text="EX-IPTV v0.8 · Audit bestanden"
                            Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Grid>
         </Border>

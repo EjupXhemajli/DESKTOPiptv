@@ -417,8 +417,15 @@ public sealed partial class MainViewModel : ObservableObject
         }
         finally { gate.Dispose(); }
 
-        if (gen == _loadGeneration && found > 0)
-            StatusText = $"{Items.Count} Einträge · {found} Poster nachgeladen";
+        if (gen == _loadGeneration)
+        {
+            Log.Information("Poster-Nachladen: {Found} gefunden, {None} ohne Bild (von {Total})",
+                found, missing.Count - found, missing.Count);
+            if (found > 0)
+                StatusText = $"{Items.Count} Einträge · {found} Poster nachgeladen";
+            else
+                StatusText = $"{Items.Count} Einträge · Panel liefert für diese Kategorie keine Poster";
+        }
     }
 
     private void DebouncedSearch()
