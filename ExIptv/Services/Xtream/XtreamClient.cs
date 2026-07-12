@@ -239,7 +239,9 @@ public sealed class XtreamClient
     {
         var u = NullIfEmpty(raw);
         if (u is null or "null" or "0" or "-") return null;
-        u = u.Replace(" ", "%20");
+        u = u.Replace("&amp;", "&")      // HTML-escaped Query-Trenner
+             .Replace('\\', '/')          // Backslashes aus schlampigen Panel-Antworten
+             .Replace(" ", "%20");
         if (u.StartsWith("//")) return "http:" + u;
         if (u.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
             u.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return u;

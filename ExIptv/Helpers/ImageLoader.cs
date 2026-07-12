@@ -75,7 +75,7 @@ public static class ImageLoader
             {
                 // Zeigt das Element inzwischen eine andere URL? Dann Download sparen.
                 if (GetSourceUrl(img) != url) return;
-                bytes = await _http.GetByteArrayAsync(url).ConfigureAwait(true);
+                bytes = await FetchAsync(url).ConfigureAwait(true);
             }
             finally { _gate.Release(); }
 
@@ -115,5 +115,75 @@ public static class ImageLoader
                 Serilog.Log.Debug(ex2, "Posterbild auch via UriSource fehlgeschlagen: {Url}", url);
             }
         }
+    }
+
+    /// <summary>
+    /// Lädt Bild-Bytes mit Self-Referer (Origin der Bild-URL). Viele IPTV-Panels haben
+    /// Hotlink-Schutz und liefern ohne passenden Referer 403 – der eigene Origin ist der
+    /// sichere, übliche Weg (keine Abschaltung von Sicherheitsmechanismen).
+    /// </summary>
+    private static async Task<byte[]> FetchAsync(string url)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (Uri.TryCreate(url, UriKind.Absolute, out var u))
+            req.Headers.Referrer = new Uri(u.GetLeftPart(UriPartial.Authority) + "/");
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead).ConfigureAwait(true);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Poster-Diagnose (F12): führt für die übergebenen URLs echte Anfragen mit denselben
+    /// Headern wie der Bild-Lader aus und liefert pro URL Status, Content-Type, Größe und
+    /// Fehlertext. Zugangsdaten in Query-Parametern werden maskiert.
+    /// </summary>
+    public static async Task<string> DiagnoseAsync(IReadOnlyList<string> urls)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Poster-Diagnose (" + DateTime.Now.ToString("HH:mm:ss") + ")");
+        foreach (var url in urls)
+        {
+            sb.AppendLine();
+            sb.AppendLine("URL: " + MaskUrl(url));
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                if (Uri.TryCreate(url, UriKind.Absolute, out var u))
+                    req.Headers.Referrer = new Uri(u.GetLeftPart(UriPartial.Authority) + "/");
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead).ConfigureAwait(true);
+                var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(true);
+                sb.AppendLine($"  Status: {(int)resp.StatusCode} {resp.StatusCode}");
+                sb.AppendLine($"  Content-Type: {resp.Content.Headers.ContentType?.ToString() ?? "(keiner)"}");
+                sb.AppendLine($"  Größe: {bytes.Length:N0} Bytes");
+                if (resp.RequestMessage?.RequestUri is { } final && final.ToString() != url)
+                    sb.AppendLine("  Umgeleitet nach: " + MaskUrl(final.ToString()));
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("  FEHLER: " + ex.GetBaseException().Message);
+            }
+        }
+        Serilog.Log.Information("Poster-Diagnose:\n{Report}", sb.ToString());
+        return sb.ToString();
+    }
+
+    /// <summary>Maskiert username/password/token/auth-Werte in Query-Strings.</summary>
+    private static string MaskUrl(string url)
+    {
+        try
+        {
+            var i = url.IndexOf('?');
+            if (i < 0) return url;
+            var query = url[(i + 1)..].Split('&').Select(p =>
+            {
+                var kv = p.Split('=', 2);
+                var key = kv[0].ToLowerInvariant();
+                return kv.Length == 2 && (key.Contains("user") || key.Contains("pass") || key.Contains("token") || key.Contains("auth"))
+                    ? kv[0] + "=***"
+                    : p;
+            });
+            return url[..i] + "?" + string.Join("&", query);
+        }
+        catch { return url; }
     }
 }

@@ -169,6 +169,12 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
         switch (e.Key)
         {
+            case Key.F12:
+                // Poster-Diagnose: prüft die ersten 3 Bild-URLs der aktuellen Liste mit
+                // echten Anfragen und zeigt Status/Content-Type/Fehler (kopierbar mit Strg+C).
+                e.Handled = true;
+                _ = RunPosterDiagnosisAsync(vm);
+                break;
             case Key.F11:
                 vm.IsFullscreen = !vm.IsFullscreen;
                 ApplyLayout();
@@ -206,6 +212,21 @@ public partial class MainWindow : Window
             vm.PlayEpisodeCommand.Execute(ep);
             ApplyLayout();
         }
+    }
+
+    private static async Task RunPosterDiagnosisAsync(MainViewModel vm)
+    {
+        var urls = vm.Items.Where(i => !string.IsNullOrEmpty(i.LogoUrl))
+                           .Take(3).Select(i => i.LogoUrl!).ToList();
+        if (urls.Count == 0)
+        {
+            MessageBox.Show("Keine Poster-URLs in der aktuellen Liste (erst Filme/Serien öffnen).",
+                "Poster-Diagnose", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var report = await ExIptv.Helpers.ImageLoader.DiagnoseAsync(urls);
+        MessageBox.Show(report + "\n(Strg+C kopiert diesen Text)",
+            "Poster-Diagnose", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     // Seekbar: Während des Ziehens nur Vorschau, genau ein Seek beim Loslassen.
