@@ -208,6 +208,17 @@ public partial class MainWindow : Window
         }
     }
 
+    // Seekbar: Während des Ziehens nur Vorschau, genau ein Seek beim Loslassen.
+    private void OnSeekDragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) vm.BeginSeek();
+    }
+
+    private void OnSeekDragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) vm.EndSeek();
+    }
+
     // Vor dem Aufklappen die aktuellen Audio-/Untertitelspuren neu einlesen.
     private void OnTracksDropDownOpened(object? sender, System.EventArgs e)
     {

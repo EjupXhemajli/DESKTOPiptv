@@ -50,6 +50,7 @@ public sealed class VlcPlayerService : IDisposable
 
     public MediaPlayer Player => _player ?? throw new InvalidOperationException("Player nicht initialisiert.");
     public bool IsSeekable => _player?.IsSeekable ?? false;
+    public long LengthMs => _player?.Length ?? 0;
 
     public void Initialize()
     {
@@ -221,7 +222,10 @@ public sealed class VlcPlayerService : IDisposable
     public void SeekTo(double position01)
     {
         if (_player is { IsSeekable: true })
+        {
+            _lastAdvanceUtc = DateTime.UtcNow;   // Puffern nach dem Sprung zählt nicht als Einfrieren
             _player.Position = (float)Math.Clamp(position01, 0, 1);
+        }
     }
 
     /// <summary>Spult um die angegebenen Sekunden vor (positiv) oder zurück (negativ).</summary>
@@ -230,6 +234,7 @@ public sealed class VlcPlayerService : IDisposable
         if (_player is null || !_player.IsSeekable) return;
         var len = _player.Length;
         if (len <= 0) return;
+        _lastAdvanceUtc = DateTime.UtcNow;
         var target = Math.Clamp(_player.Time + seconds * 1000L, 0, len);
         _player.Time = target;
     }

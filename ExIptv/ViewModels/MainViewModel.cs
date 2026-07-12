@@ -178,9 +178,29 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private TrackInfo? _selectedAudioTrack;
     [ObservableProperty] private TrackInfo? _selectedSubtitleTrack;
 
+    private bool _isUserSeeking;   // Nutzer zieht gerade den Seek-Regler
+
+    /// <summary>Vom Code-Behind beim Anfassen des Seek-Reglers gerufen.</summary>
+    public void BeginSeek() => _isUserSeeking = true;
+
+    /// <summary>Beim Loslassen: genau ein Seek zur gewählten Position.</summary>
+    public void EndSeek()
+    {
+        _isUserSeeking = false;
+        _player.SeekTo(PlaybackPosition);
+    }
+
     partial void OnPlaybackPositionChanged(double value)
     {
         if (_suppressSeek) return;   // vom Player gepusht -> nicht zurückspulen
+        if (_isUserSeeking)
+        {
+            // Nur Zeit-Vorschau während des Ziehens – der eigentliche Seek kommt beim Loslassen.
+            var len = _player.LengthMs;
+            if (len > 0) PlaybackTimeText = FormatMs((long)(value * len));
+            return;
+        }
+        // Direkter Klick auf die Spur (kein Drag): einmaliger Sofort-Seek.
         _player.SeekTo(value);
     }
 
@@ -208,10 +228,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void OnPlayerTimeChanged(long timeMs, long lengthMs)
     {
-        _suppressSeek = true;
-        PlaybackPosition = lengthMs > 0 ? Math.Clamp((double)timeMs / lengthMs, 0, 1) : 0;
-        _suppressSeek = false;
-        PlaybackTimeText = FormatMs(timeMs);
+        // Während der Nutzer zieht, den Regler nicht vom Player überschreiben lassen –
+        // sonst "kämpft" der Slider gegen die Maus.
+        if (!_isUserSeeking)
+        {
+            _suppressSeek = true;
+            PlaybackPosition = lengthMs > 0 ? Math.Clamp((double)timeMs / lengthMs, 0, 1) : 0;
+            _suppressSeek = false;
+            PlaybackTimeText = FormatMs(timeMs);
+        }
         PlaybackLengthText = FormatMs(lengthMs);
         CanSeek = _player.IsSeekable && lengthMs > 0 && CurrentSection != ContentType.Live;
     }

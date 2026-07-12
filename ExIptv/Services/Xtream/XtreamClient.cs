@@ -132,7 +132,7 @@ public sealed class XtreamClient
                 SourceId = s.Id,
                 ExternalId = streamId,
                 Name = d.Name?.Trim() ?? "Unbenannt",
-                PosterUrl = NullIfEmpty(d.StreamIcon),
+                PosterUrl = NullIfEmpty(d.StreamIcon) ?? NullIfEmpty(d.Cover) ?? NullIfEmpty(d.MovieImage),
                 ContainerExtension = ext,
                 CategoryExternalId = AsString(d.CategoryId),
                 Rating = ParseDouble(d.Rating),

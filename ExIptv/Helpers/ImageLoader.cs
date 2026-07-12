@@ -87,9 +87,24 @@ public static class ImageLoader
             // Prüfen, ob dieses Image inzwischen eine andere URL zeigt (Recycling/schnelles Scrollen).
             if (GetSourceUrl(img) == url) img.Source = bmp;
         }
-        catch
+        catch (Exception ex)
         {
-            // Laden fehlgeschlagen -> Bild bleibt leer, der 🎬-Platzhalter dahinter ist sichtbar.
+            Serilog.Log.Debug(ex, "Posterbild via HttpClient fehlgeschlagen: {Url}", url);
+            // Fallback: WPF-eigener Lader (hilft z. B. hinter System-Proxys).
+            try
+            {
+                var b = new BitmapImage();
+                b.BeginInit();
+                b.UriSource = new Uri(url);
+                b.DecodePixelWidth = 200;
+                b.CacheOption = BitmapCacheOption.OnLoad;
+                b.EndInit();
+                if (GetSourceUrl(img) == url) img.Source = b;
+            }
+            catch (Exception ex2)
+            {
+                Serilog.Log.Debug(ex2, "Posterbild auch via UriSource fehlgeschlagen: {Url}", url);
+            }
         }
     }
 }

@@ -28,6 +28,10 @@ internal sealed class XtreamVodStreamDto
     [JsonPropertyName("stream_id")] public JsonElement StreamId { get; set; }
     [JsonPropertyName("name")] public string? Name { get; set; }
     [JsonPropertyName("stream_icon")] public string? StreamIcon { get; set; }
+    // Panel-abhängig: manche Panels liefern das Filmbild nicht in stream_icon,
+    // sondern in cover oder movie_image.
+    [JsonPropertyName("cover")] public string? Cover { get; set; }
+    [JsonPropertyName("movie_image")] public string? MovieImage { get; set; }
     [JsonPropertyName("category_id")] public JsonElement CategoryId { get; set; }
     [JsonPropertyName("container_extension")] public string? ContainerExtension { get; set; }
     [JsonPropertyName("rating")] public string? Rating { get; set; }
