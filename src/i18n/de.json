@@ -1,0 +1,103 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "live": "Live-TV",
+    "guide": "TV-Programm",
+    "movies": "Filme",
+    "series": "Serien",
+    "favorites": "Favoriten",
+    "recordings": "Aufnahmen",
+    "history": "Verlauf",
+    "search": "Suche",
+    "providers": "Anbieter",
+    "settings": "Einstellungen",
+    "collapse": "Seitenleiste einklappen",
+    "expand": "Seitenleiste ausklappen"
+  },
+  "home": {
+    "greetingMorning": "Guten Morgen",
+    "greetingDay": "Guten Tag",
+    "greetingEvening": "Guten Abend",
+    "subtitle": "Was möchtest du heute sehen?",
+    "continueWatching": "Wiedergabe fortsetzen",
+    "recentChannels": "Zuletzt angesehen",
+    "getStartedTitle": "Willkommen bei EXIPTV",
+    "getStartedText": "Füge einen Anbieter oder eine Playlist hinzu, um Live-TV, Filme und Serien zu sehen.",
+    "getStartedAction": "Anbieter hinzufügen"
+  },
+  "live": {
+    "allChannels": "Alle Kanäle",
+    "groups": "Gruppen",
+    "channelCount": "{{count}} Kanäle",
+    "emptyTitle": "Noch keine Kanäle",
+    "emptyText": "Importiere eine Playlist über den Bereich Anbieter, um hier deine Sender zu sehen.",
+    "playSoon": "Die Wiedergabe wird mit der Player-Integration (Phase 4) aktiviert."
+  },
+  "providers": {
+    "title": "Anbieter",
+    "add": "Anbieter hinzufügen",
+    "name": "Name",
+    "type": "Typ",
+    "typeM3uUrl": "M3U-Playlist (URL)",
+    "typeM3uFile": "M3U-Playlist (Datei)",
+    "typeXtream": "Xtream-Zugang",
+    "source": "Quelle",
+    "sourceUrlPlaceholder": "https://…/playlist.m3u",
+    "sourceFilePlaceholder": "Pfad zur .m3u-Datei",
+    "serverPlaceholder": "http://server:port",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "passwordHint": "Wird sicher im Windows-Anmeldeinformationsspeicher abgelegt.",
+    "chooseFile": "Datei wählen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "refresh": "Aktualisieren",
+    "delete": "Löschen",
+    "deleteConfirm": "Diesen Anbieter und alle zugehörigen Daten entfernen?",
+    "channels": "{{count}} Kanäle",
+    "lastRefresh": "Zuletzt aktualisiert: {{time}}",
+    "never": "noch nie",
+    "importing": "Import läuft …",
+    "importStageLaden": "Playlist wird geladen …",
+    "importStageVerarbeiten": "Einträge werden verarbeitet …",
+    "importStageSpeichern": "{{count}} Kanäle werden gespeichert …",
+    "importDone": "{{count}} Kanäle importiert",
+    "importSkipped": "{{count}} fehlerhafte Einträge übersprungen",
+    "emptyTitle": "Noch keine Anbieter",
+    "emptyText": "Füge deinen ersten Anbieter oder eine Playlist hinzu. EXIPTV unterstützt M3U-Dateien, M3U-URLs und Xtream-Zugänge.",
+    "validationName": "Bitte einen Namen angeben.",
+    "validationSource": "Bitte eine Quelle angeben."
+  },
+  "search": {
+    "placeholder": "Sender suchen … (mind. 2 Zeichen)",
+    "noResults": "Keine Treffer für „{{query}}“.",
+    "hint": "Die Suche umfasst aktuell Live-TV-Sender. Filme, Serien und Sendungen folgen mit den nächsten Phasen."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "general": "Allgemein",
+    "language": "Sprache",
+    "interface": "Oberfläche",
+    "reducedMotion": "Reduzierte Animationen",
+    "compact": "Kompakte Ansicht",
+    "diagnostics": "Diagnose",
+    "appVersion": "App-Version",
+    "os": "Betriebssystem",
+    "dbVersion": "Datenbankschema",
+    "saved": "Gespeichert"
+  },
+  "common": {
+    "loading": "Wird geladen …",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "comingPhase": "Dieser Bereich wird in Entwicklungsphase {{phase}} freigeschaltet."
+  },
+  "empty": {
+    "favorites": "Noch keine Favoriten. Markiere Sender, Filme oder Serien mit dem Stern, um sie hier zu sammeln.",
+    "recordings": "Noch keine Aufnahmen. Geplante und laufende Aufnahmen erscheinen hier.",
+    "history": "Dein Verlauf ist leer. Sobald du etwas ansiehst, findest du es hier wieder.",
+    "guide": "Noch keine Programmdaten. Hinterlege eine EPG-Quelle beim Anbieter, um das TV-Programm zu sehen.",
+    "movies": "Noch keine Filme. Filme erscheinen hier, sobald ein Anbieter mit VOD-Inhalten eingerichtet ist.",
+    "series": "Noch keine Serien. Serien erscheinen hier, sobald ein Anbieter mit Serieninhalten eingerichtet ist."
+  }
+}

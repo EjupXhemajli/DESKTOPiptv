@@ -1,0 +1,129 @@
+@import "./tokens.css";
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text);
+  background:
+    radial-gradient(1100px 520px at 78% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
+    radial-gradient(900px 480px at -10% 108%, rgba(41, 194, 246, 0.10), transparent 55%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0) 55%);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+::selection { background: rgba(139, 92, 246, 0.4); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 216, 0.22); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 216, 0.35); }
+::-webkit-scrollbar-track { background: transparent; }
+
+h1, h2, h3 { font-family: var(--font-display); margin: 0; }
+h1 { font-size: 1.5rem; font-weight: 650; letter-spacing: 0.01em; }
+h2 { font-size: 1.1rem; font-weight: 600; }
+p  { margin: 0; }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+button:hover { border-color: var(--border-strong); background: var(--surface-solid); }
+button:active { transform: translateY(1px); }
+button.primary {
+  background: linear-gradient(120deg, rgba(139,92,246,0.9), rgba(45,125,246,0.9));
+  border-color: transparent;
+}
+button.primary:hover { filter: brightness(1.08); }
+button.danger { border-color: rgba(248,113,113,0.4); color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 9px 12px;
+  width: 100%;
+}
+input::placeholder { color: var(--text-faint); }
+
+/* EX-Ring: das Signatur-Fokusmotiv (Logo-Bogen als Gradientring). */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--glow);
+  border-radius: var(--radius-m);
+}
+
+.app-shell { display: flex; height: 100%; }
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--gap-l);
+  gap: var(--gap-m);
+  overflow-y: auto;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: var(--gap-m);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-1);
+}
+
+.row { display: flex; align-items: center; gap: var(--gap-s); }
+.grow { flex: 1; min-width: 0; }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); font-size: 0.85rem; }
+
+/* Skeleton Loading statt leerer Flächen */
+.skeleton {
+  border-radius: var(--radius-m);
+  background: linear-gradient(100deg, var(--bg-2) 40%, #17224a 50%, var(--bg-2) 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* Leerer Zustand */
+.empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.empty .ring {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: conic-gradient(from 210deg, var(--magenta), var(--violet), var(--cyan), transparent 78%);
+  -webkit-mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+  mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+}
+
+.channel-row { transition: background var(--transition); }
+.channel-row:hover, .channel-row:focus-visible { background: rgba(148, 163, 216, 0.08); }
+.channel-logo {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--text-faint);
+  overflow: hidden;
+}
+.channel-logo img { width: 100%; height: 100%; object-fit: contain; }

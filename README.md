@@ -1,70 +1,74 @@
-# EX-IPTV Desktop
+<p align="center">
+  <img src="public/assets/branding/EXIPTV-LOGO.png" alt="EXIPTV" width="420">
+</p>
 
-Native Windows-IPTV-Anwendung (C# / .NET 8 / WPF) mit LibVLCSharp als Player-Engine.
-Neuentwicklung ohne WebView2/VLC-Hybrid – der Player rendert direkt über `VideoView`.
+# EXIPTV
 
-## Funktionsumfang (Phase 1)
+Moderner IPTV-Player für Windows 10/11 (64 Bit). Tauri 2 + Rust-Backend,
+React/TypeScript-Frontend, SQLite. Ausschließlich für legal bereitgestellte
+Streams und eigene bzw. autorisierte IPTV-Zugänge — ohne Funktionen zur
+Umgehung von DRM oder Zugangsbeschränkungen.
 
-- **Quellen:** Xtream Codes (primär), M3U/M3U8-URL, lokale M3U-Datei
-- **Auto-Erkennung** des Quelltyps aus URL (`get.php`, `player_api.php`) oder Dateipfad
-- **Inhalte:** Live-TV, Filme (VOD), Serien mit lazy geladenen Episoden
-- **Kategorien** je Sektion, Volltextsuche mit Debounce
-- **Lokaler Cache** in SQLite (WAL), Bulk-Import in einer Transaktion – ausgelegt für 100k+ Einträge
-- **Player:** konfigurierbares Puffer-/Netzwerk-Caching, Hardware-Dekodierung,
-  automatische Neuverbindung mit Exponential-Backoff bei Stream-Abriss
-- Robustes Logging (Serilog, rollierend), globale Fehlerbehandlung ohne harten Absturz
+## Aktueller Stand (Phase 1–3 Kern)
 
-## Architektur
+| Bereich | Status |
+|---|---|
+| Projektstruktur, Designsystem, Branding | ✅ fertig |
+| SQLite-Schema (23 Entitäten), Migrationen | ✅ fertig, getestet |
+| Toleranter M3U/Extended-M3U-Parser (Encoding-Erkennung, EXTGRP, EXTVLCOPT, Catch-up-Attribute) | ✅ fertig, getestet |
+| Staging-Import (alte Playlist bleibt bei Fehlschlag erhalten) | ✅ fertig, getestet |
+| Anbieterverwaltung (UI + Backend), Import-Fortschritt via Events | ✅ fertig |
+| Live-TV-Liste (virtualisiert, Gruppen, inkrementelles Laden) | ✅ fertig |
+| Suche (normalisiert, entprellt), Einstellungen, i18n DE/EN | ✅ fertig |
+| Sichere Zugangsdaten (Windows Credential Manager) | ✅ fertig |
+| Logging (rotierend, maskiert), Diagnose-Grunddaten | ✅ fertig |
+| Wiedergabe (libmpv), EPG, VOD/Serien, Aufnahmen, Multi-View | 🔜 Phasen 4–9, siehe `docs/PHASENPLAN.md` |
 
-Ein einzelnes WPF-Projekt mit klarer Schichtung nach Ordnern:
+Kern-Testsuite: **28 Tests, alle grün** (`cargo test -p exiptv-core`).
 
-```
-ExIptv/
-├─ Models/            Datenmodelle (Channel, VodStream, Series, Category, ...)
-├─ Services/
-│  ├─ Xtream/         Xtream-Codes-API-Client + DTOs
-│  ├─ Playlist/       M3U-Parser, Quellen-Erkennung, Import-Orchestrierung
-│  ├─ Data/           SQLite-Schema + Dapper-Repository (Bulk-Insert)
-│  └─ Player/         LibVLCSharp-Wrapper mit Auto-Recovery
-├─ ViewModels/        MVVM (CommunityToolkit.Mvvm, source-generated)
-├─ Views/             XAML (MainWindow, SourceDialog, Theme)
-└─ Converters/
-```
+## Voraussetzungen (Entwicklung)
 
-**Stack:** .NET 8, WPF, CommunityToolkit.Mvvm, Dapper + Microsoft.Data.Sqlite,
-LibVLCSharp(.WPF), Microsoft.Extensions.DependencyInjection/Http(+Polly), Serilog.
+- Windows 10/11 x64 mit [WebView2-Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (auf aktuellen Systemen vorinstalliert)
+- Rust ≥ 1.77 (stable) über rustup
+- Node.js ≥ 20
+- Für den Installer-Build: keine weiteren Werkzeuge nötig (Tauri bündelt WiX/NSIS selbst)
 
 ## Build
 
-Der Build läuft über **GitHub Actions** (`.github/workflows/build.yml`), kein lokales SDK nötig.
-
-- **Push** auf `main`/`master` → baut Portable-ZIP + Setup-EXE als Artefakte
-- **Tag** `v*` (z. B. `v0.1.0`) → hängt beide zusätzlich an ein GitHub-Release
-
-Erzeugt werden:
-- `EX-IPTV-Setup-<version>.exe` – Installer (Inno Setup, self-contained, deutsch)
-- `ExIptv-portable-win-x64.zip` – entpacken und `ExIptv.exe` starten
-
-### Lokal (falls SDK vorhanden)
-
 ```bash
-dotnet publish ExIptv/ExIptv.csproj -c Release -r win-x64 --self-contained true -o publish
+npm install
+
+# Entwicklung (Hot Reload, echtes Rust-Backend)
+npx tauri dev
+
+# Nur UI im Browser (mit In-Memory-Mock-Backend)
+npm run dev
+
+# Core-Tests (ohne Tauri-Toolchain lauffähig)
+cargo test -p exiptv-core
+
+# Produktions-Build inkl. Windows-Installer (MSI + NSIS)
+npx tauri build
 ```
 
-## Installation
+Installer entstehen unter `src-tauri/target/release/bundle/{msi,nsis}/`.
+Der NSIS-Installer ist deutsch/englisch, installiert pro Benutzer und bringt
+eine saubere Deinstallationsroutine mit.
 
-`INSTALLIEREN.bat` doppelklicken. Das Skript:
-1. startet eine `EX-IPTV-Setup-*.exe` bzw. `ExIptv-portable-*.zip` aus demselben Ordner, falls vorhanden,
-2. lädt sonst automatisch das neueste Release von GitHub.
+**CI:** `.github/workflows/windows-build.yml` führt bei jedem Push die
+Core-Tests aus und baut anschließend MSI + NSIS auf `windows-latest`
+(Artefakt `exiptv-windows-installer`).
 
-> Repo-Pfad im BAT (`set "REPO=..."`) einmalig auf das eigene Repository anpassen.
+## Projektstruktur
 
-## Roadmap (Phase 2+)
+```
+core/         exiptv-core: Parser, Datenmodell, SQLite, Sicherheit (headless testbar)
+src-tauri/    Tauri-Shell: Fenster, IPC-Commands, HTTP, Credential Manager, Logging
+src/          React/TypeScript-Frontend (Design-Tokens, Seiten, i18n)
+public/       Statische Assets inkl. Branding
+docs/         Architektur, Entscheidungen, Phasenplan, Handbücher
+```
 
-- Stalker-/MAC-Portal-Quellen
-- EPG (XMLTV) inkl. „Jetzt/Gleich"
-- Catch-Up / Timeshift
-- Metadaten-Anreicherung (TMDB) für Cover/Beschreibungen
-- Favoriten-UI und zuletzt gesehen
-- Adaptive Puffer-Strategie nach Messung der Verbindungsqualität
-- Einstellungsdialog (Caching, Hardware-Dekodierung, Sprache)
+Weiterführend: `docs/ARCHITEKTUR.md`, `docs/ENTSCHEIDUNGEN.md`,
+`docs/PHASENPLAN.md`, `docs/ENTWICKLUNG.md`, `docs/BENUTZERHANDBUCH.md`,
+`docs/FEHLERBEHEBUNG.md`, `DATENSCHUTZ.md`.
